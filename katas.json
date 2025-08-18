@@ -1,5 +1,23 @@
 {
   "katas": [
+        {
+      "title": "Add Two Numbers",
+      "slug": "add-two-numbers",
+      "description": "Return the sum of two integers.",
+      "visible_skeleton": "func Add(a int, b int) int {\n    return 0\n}\n",
+      "test_cases": [
+        { "call": "Add(1, 2)", "expected": "3" },
+        { "call": "Add(-2, 3)", "expected": "1" },
+        { "call": "Add(0, 0)", "expected": "0" },
+        { "call": "Add(100, 200)", "expected": "300" },
+        { "call": "Add(-100, -100)", "expected": "-200" },
+        { "call": "Add(2147483647, 1)", "expected": "2147483648" },
+        { "call": "Add(-2147483648, 1)", "expected": "-2147483647" },
+        { "call": "Add(999, -999)", "expected": "0" },
+        { "call": "Add(5000, 0)", "expected": "5000" },
+        { "call": "Add(0, 5000)", "expected": "5000" }
+      ]
+    },
     {
       "title": "Binary Search (Leftmost Index)",
       "slug": "binary-search-leftmost",
