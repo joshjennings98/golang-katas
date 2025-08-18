@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Go (Yaegi) — single‑file WASM runner</title>
+  <title>Go Programming Katas - Powered by Yaegi and WASM</title>
   <style>
     :root { --gap: 12px; --bg: #0b0f14; --panel: #121822; --ink: #e8eef7; --muted: #9fb0c3; --accent: #4aa4ff; }
     * { box-sizing: border-box; }
@@ -15,7 +15,7 @@
 
     .wrap { padding: var(--gap); max-width: 1100px; margin: 0 auto; }
     .grid { display: grid; grid-template-columns: 1fr; gap: var(--gap); }
-    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+    @media (min-width: 1000px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
 
     .panel { background: var(--panel); border: 1px solid #223047; border-radius: 12px; box-shadow: 0 10px 24px rgba(0,0,0,.25); overflow: hidden; display: flex; flex-direction: column; }
     .panel header { background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)); border-bottom: 1px solid #1e2a3d; padding: 10px 12px; }
@@ -25,20 +25,30 @@
     textarea, pre { width: 100%; height: 360px; background: #0f1520; color: var(--ink); border: 1px solid #1c2740; border-radius: 8px; padding: 12px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; resize: vertical; }
     pre { white-space: pre-wrap; word-break: break-word; height: 360px; overflow: auto; }
 
-    .toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid #1e2a3d; background: #0e141f; }
+    .toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid #1e2a3d; background: #0e141f; flex-wrap: wrap; }
     button { appearance: none; border: 1px solid #275e9d; background: linear-gradient(180deg, #1a66c0, #13539a); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; }
     button:disabled { opacity: .6; cursor: progress; }
     .status { font-size: 12px; color: var(--muted); margin-left: auto; }
 
     .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
     .hidden { display: none !important; }
-    .b64 { background: #0f1520; border: 1px dashed #2b3d62; border-radius: 8px; padding: 10px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas; word-break: break-all; }
+
+    #src { tab-size: 4; -moz-tab-size: 4; }
+
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    select, .desc { background: #0f1520; color: var(--ink); border: 1px solid #1c2740; border-radius: 8px; padding: 8px; }
+    select { font: 13px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial; }
+    .desc { font-size: 12px; color: var(--muted); }
+
+    .badge { display:inline-block; padding:2px 6px; border-radius:6px; border:1px solid #2b3d62; font-size:11px; color:#cfe0ff; }
+    .ok { color:#8fffa8; }
+    .fail { color:#ff9c9c; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Go (Yaegi) in one HTML file</h1>
-    <div class="badges">No server • Inline wasm_exec • WASM embedded</div>
+    <h1>Go Programming Katas</h1>
+    <div class="badges">Powered by Yaegi and WASM</div>
   </header>
 
   <div class="wrap">
@@ -46,15 +56,13 @@
       <section class="panel" id="editorPanel">
         <header><h2>Source (Go)</h2></header>
         <div class="body">
-          <textarea id="src" spellcheck="false">package main
-
-import "fmt"
-
-func main() {
-    fmt.Println("Hello from Yaegi!")
-}
-</textarea>
-          <div class="hint">Type Go code interpreted by <a href="https://github.com/traefik/yaegi" target="_blank" rel="noreferrer">Yaegi</a>. On Run, stdout/stderr appear on the right.</div>
+          <div class="row" style="margin-bottom:8px">
+            <label for="kataSelect" class="badge">Kata</label>
+            <select id="kataSelect"></select>
+            <span class="desc" id="kataDesc"></span>
+          </div>
+          <textarea id="src" spellcheck="false"></textarea>
+          <div class="hint">Select a kata, implement the function in Go, then click Run to execute the test cases in the browser via <a href="https://github.com/traefik/yaegi" target="_blank" rel="noreferrer">Yaegi</a>.</div>
         </div>
         <div class="toolbar">
           <button id="runBtn" disabled>Run</button>
@@ -64,19 +72,15 @@ func main() {
       </section>
 
       <section class="panel" id="outputPanel">
-        <header><h2>Output (stdout/stderr)</h2></header>
+        <header><h2>Output (tests)</h2></header>
         <div class="body">
           <pre id="out"></pre>
-          <div id="b64wrap" class="hidden">
-            <div class="hint">Base64 of output:</div>
-            <div id="b64" class="b64"></div>
-          </div>
         </div>
       </section>
     </div>
   </div>
 
-  <!-- Inline wasm_exec.js from $GOROOT/misc/wasm/wasm_exec.js -->
+  <!-- Inline wasm_exec.js from $GOROOT/lib/wasm/wasm_exec.js -->
   <script>
   /* ===== BEGIN wasm_exec.js (paste contents here) ===== */
   /*__WASM_EXEC_JS__*/
@@ -84,78 +88,243 @@ func main() {
   </script>
 
   <script>
-    // ==== 1) Embed your compiled WASM as base64 (see build steps below) ====
-    const WASM_B64 = "__WASM_BASE64__"; // replace with base64 of yaegi.wasm
+    // 1) Embed compiled WASM + katas config (base64, filled by Makefile)
+    const WASM_B64 = "__WASM_BASE64__"; // yaegi.wasm (base64)
+    const KATAS_B64 = "__KATAS_BASE64__"; // katas.json (base64)
 
-    function b64ToBytes(b64) {
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes;
-    }
+    function b64ToBytes(b64){ const bin = atob(b64); const bytes = new Uint8Array(bin.length); for (let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i); return bytes; }
+    function b64ToUtf8(b64){ return decodeURIComponent(escape(atob(b64))); }
 
     // UI helpers
     const $ = (sel) => document.querySelector(sel);
+    const srcEl = $("#src");
     const outEl = $("#out");
-    const b64Wrap = $("#b64wrap");
-    const b64El = $("#b64");
     const statusEl = $("#status");
     const runBtn = $("#runBtn");
     const clearBtn = $("#clearBtn");
+    const kataSelect = $("#kataSelect");
+    const kataDesc = $("#kataDesc");
 
-    function setOut(s, isErr=false) {
-      outEl.textContent = s;
-      if (outEl.textContent.length > 0) {
-        b64Wrap.classList.remove("hidden");
-        b64El.textContent = btoa(unescape(encodeURIComponent(outEl.textContent)));
+    // Capture the default height from CSS once (e.g. 360px from your stylesheet)
+    let DEFAULT_OUT_H = parseFloat(getComputedStyle(outEl).height);
+
+    // If your layout can change (fonts/width), keep the default in sync
+    window.addEventListener("resize", () => {
+      DEFAULT_OUT_H = parseFloat(getComputedStyle(outEl).height);
+      resizeOutToContent();
+    });
+
+    function resizeOutToContent() {
+      const isEmpty = outEl.textContent.trim().length === 0;
+
+      if (isEmpty) {
+        // Reset to the CSS default size
+        outEl.style.height = DEFAULT_OUT_H + "px";
+        outEl.style.overflowY = "hidden";
+        return;
+      }
+
+      // Grow to fit content, but cap at the default height
+      outEl.style.height = "auto";
+      const needed = outEl.scrollHeight;           // natural content height
+      const h = Math.min(needed, DEFAULT_OUT_H);   // cap at default
+      outEl.style.height = h + "px";
+      outEl.style.overflowY = needed > DEFAULT_OUT_H ? "auto" : "hidden";
+    }
+
+    function writeOut(text) {
+      outEl.textContent = text;
+      if (typeof resizeOutToContent === "function") resizeOutToContent();
+    }
+
+    function setOut(s) {
+      const isSuccess = s === "✓ Success!" || s.startsWith("✓ Success!");
+      if (isSuccess && startedAt != null) {
+        if (successAt == null) {
+          successAt = performance.now() - startedAt; // latch once
+        }
+        writeOut(`✓ Success! (${formatElapsed(successAt)})`);
+        return;
+      }
+      writeOut(s);
+    }
+
+    // ---- smart indentation for #src
+    const INDENT = "  "; // two spaces; change to "\t" for real tabs
+
+    srcEl.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab" && e.key !== "Enter") return;
+
+      const el = e.target;
+      const { selectionStart: s, selectionEnd: epos, value } = el;
+
+      // Helper: set value and selection
+      const set = (text, start, end) => {
+        el.value = text;
+        el.selectionStart = start;
+        el.selectionEnd = end;
+      };
+
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const startLine = value.lastIndexOf("\n", s - 1) + 1;
+        const endLineBreak = value.indexOf("\n", epos);
+        const endLine = endLineBreak === -1 ? value.length : endLineBreak;
+
+        // Multiline selection -> indent/outdent each line
+        if (s !== epos && value.slice(startLine, endLine).includes("\n")) {
+          const block = value.slice(startLine, endLine);
+          const lines = block.split("\n");
+          if (e.shiftKey) {
+            // outdent
+            let removedTotal = 0;
+            const out = lines.map((ln) => {
+              if (ln.startsWith(INDENT)) { removedTotal += INDENT.length; return ln.slice(INDENT.length); }
+              const m = ln.match(/^[ \t]/); // remove 1 leading space/tab if present
+              if (m) { removedTotal += 1; return ln.slice(1); }
+              return ln;
+            }).join("\n");
+            const before = value.slice(0, startLine);
+            const after  = value.slice(endLine);
+            const newText = before + out + after;
+            const newS = s - Math.min(INDENT.length, s - startLine);
+            const newE = epos - removedTotal;
+            set(newText, newS, newE);
+          } else {
+            // indent
+            const out = lines.map((ln) => INDENT + ln).join("\n");
+            const before = value.slice(0, startLine);
+            const after  = value.slice(endLine);
+            const newText = before + out + after;
+            const addedPerLine = INDENT.length;
+            const lineCount = lines.length;
+            const newS = s + addedPerLine;                    // first line gets indent
+            const newE = epos + (addedPerLine * lineCount);   // all lines indented
+            set(newText, newS, newE);
+          }
+          return;
+        }
+
+        // Single caret or single-line selection
+        if (e.shiftKey) {
+          // outdent one level if present
+          const lineStart = value.lastIndexOf("\n", s - 1) + 1;
+          if (value.slice(lineStart).startsWith(INDENT)) {
+            set(value.slice(0, lineStart) + value.slice(lineStart + INDENT.length), s - INDENT.length, epos - INDENT.length);
+          } else if (/[ \t]/.test(value.charAt(lineStart))) {
+            set(value.slice(0, lineStart) + value.slice(lineStart + 1), Math.max(lineStart, s - 1), Math.max(lineStart, epos - 1));
+          }
+        } else {
+          // insert indent
+          const before = value.slice(0, s);
+          const after  = value.slice(epos);
+          set(before + INDENT + after, s + INDENT.length, s + INDENT.length);
+        }
+        return;
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        // Auto-indent: copy current line's leading whitespace
+        const lineStart = value.lastIndexOf("\n", s - 1) + 1;
+        const curLine = value.slice(lineStart, s);
+        const m = curLine.match(/^[\t ]*/);
+        const carry = m ? m[0] : "";
+        const before = value.slice(0, s);
+        const after  = value.slice(epos);
+        const insert = "\n" + carry;
+        set(before + insert + after, s + insert.length, s + insert.length);
+      }
+    });
+
+    let startedAt = null;      // ms (perf clock) at page load
+    let successAt = null;      // elapsed ms at first success; stays fixed
+
+    window.addEventListener("load", () => {
+      startedAt = performance.now();
+    });
+
+    function formatElapsed(ms) {
+      return ms < 1000 ? `${Math.round(ms)} ms` : `${(ms/1000).toFixed(2)} s`;
+    }
+
+    // Example clear hook
+    clearBtn.addEventListener("click", () => {
+      outEl.textContent = "";
+      resizeOutToContent(); // snaps back to default height
+    });
+
+    // Load katas config
+    const KATAS_JSON = b64ToUtf8(KATAS_B64);
+    let KATAS = { katas: [] };
+    try { KATAS = JSON.parse(KATAS_JSON); } catch (e) { console.error("Invalid katas.json:", e); }
+
+    function populateKatas(){
+      kataSelect.innerHTML = "";
+      for (const k of (KATAS.katas||[])){
+        const opt = document.createElement("option");
+        opt.value = k.slug; opt.textContent = k.title; kataSelect.appendChild(opt);
+      }
+      if (kataSelect.options.length) {
+        kataSelect.selectedIndex = (Math.random() * kataSelect.options.length) | 0; // pick random
+        setKata(kataSelect.value);
       }
     }
 
-    clearBtn.addEventListener("click", () => {
-      outEl.textContent = "";
-      b64El.textContent = "";
-      b64Wrap.classList.add("hidden");
-    });
+    function setKata(slug){
+      const k = (KATAS.katas||[]).find(x=>x.slug===slug);
+      if (!k) return;
+      kataSelect.value = k.slug;
+      kataDesc.textContent = k.description || "";
+      srcEl.value = k.visible_skeleton || "";
+    }
+
+    kataSelect.addEventListener("change", () => setKata(kataSelect.value));
 
     (async () => {
       // 2) Boot Go runtime
       const go = new Go();
 
-      // Capture console output (Go's stdout/stderr route here in the browser)
-      const log = console.log.bind(console);
-      const err = console.error.bind(console);
-      console.log = (...args) => { setOut(args.join(" ") + "\n"); log(...args); };
-      console.error = (...args) => { setOut(args.join(" ") + "\n", true); err(...args); };
-
       statusEl.textContent = "Loading WASM…";
       const { instance } = await WebAssembly.instantiate(b64ToBytes(WASM_B64), go.importObject);
       statusEl.textContent = "Starting Go…";
-      // Run the Go module (non-blocking for UI events)
       go.run(instance);
 
-      // Wait until yaegi registers the callable function
+      // Wait for exported Go funcs
       const waitFor = (cond, timeoutMs=10000) => new Promise((res, rej) => {
         const t0 = performance.now();
-        (function spin(){
-          if (cond()) return res();
-          if (performance.now() - t0 > timeoutMs) return rej(new Error("timeout waiting for yaegi"));
-          setTimeout(spin, 25);
-        })();
+        (function spin(){ if (cond()) return res(); if (performance.now()-t0>timeoutMs) return rej(new Error("timeout")); setTimeout(spin, 25); })();
       });
 
-      await waitFor(() => typeof globalThis.yaegiRun === "function");
+      await waitFor(() => typeof globalThis.yaegiRunTests === "function");
       statusEl.textContent = "Ready";
       runBtn.disabled = false;
+      populateKatas();
 
       runBtn.addEventListener("click", async () => {
-        runBtn.disabled = true; statusEl.textContent = "Running…";
-        const src = document.getElementById("src").value;
+        runBtn.disabled = true; statusEl.textContent = "Running…"; setOut("");
+        const src = srcEl.value; const slug = kataSelect.value;
         try {
-          const result = await globalThis.yaegiRun(src);
-          if (result && result.stderr) setOut(result.stderr + (result.stderr.endsWith("\n")?"":"\n"), true);
-          if (result && result.stdout) setOut(result.stdout + (result.stdout.endsWith("\n")?"":"\n"));
+          const result = await globalThis.yaegiRunTests(src, slug, KATAS_JSON);
+          // result: { total, passed, cases:[{call, expected, got, ok, error?}], stdout, stderr }
+          const lines = [];
+          if (result.stdout) lines.push(result.stdout);
+          if (result.stderr) lines.push(result.stderr);
+          lines.push(`Kata: ${slug} — ${result.passed}/${result.total} passed`);
+          for (const c of (result.cases||[])){
+            const mark = c.ok ? "✓" : "✗";
+            const cls = c.ok ? "ok" : "fail";
+            lines.push(`${mark} ${c.call} ⇒ got ${c.got} (expected ${c.expected})` + (c.error?` — error: ${c.error}`:""));
+          }
+          const out = lines.join("\n");
+          console.log(out);
+          if (out.includes("✗") || out.includes("compile error:")) {
+            setOut(out);
+          } else {
+            setOut("✓ Success!"); 
+          }
         } catch (e) {
-          setOut(String(e) + "\n", true);
+          setOut(String(e));
         } finally {
           statusEl.textContent = "Ready"; runBtn.disabled = false;
         }

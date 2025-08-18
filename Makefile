@@ -3,11 +3,13 @@ DIST := dist
 
 HTML_IN := ./template.html
 GOLANG_IN := ./main.go
+KATAS_JSON := ./katas.json
 
 HTML_OUT := $(DIST)/index.html
 WASM_OUT := $(DIST)/yaegi.wasm
 WASM_B64 := $(DIST)/yaegi.wasm.b64
 WASM_EXEC_OUT := $(DIST)/wasm_exec.js
+KATAS_B64 := $(DIST)/katas.json.b64
 
 $(DIST):
 	mkdir -p $(DIST)
@@ -21,11 +23,14 @@ $(WASM_B64): $(WASM_OUT) | $(DIST)
 $(WASM_EXEC_OUT): | $(DIST)
 	cp $(shell go env GOROOT)/lib/wasm/wasm_exec.js $(WASM_EXEC_OUT)
 
-$(HTML_OUT): $(HTML_IN) $(WASM_B64) $(WASM_EXEC_OUT) | $(DIST)
-	@awk -v b64f="$(WASM_B64)" -v execf="$(WASM_EXEC_OUT)" '\
+$(KATAS_B64): $(KATAS_JSON) | $(DIST)
+	base64 < "$(KATAS_JSON)" | tr -d '\n' > "$(KATAS_B64)"
+
+$(HTML_OUT): $(HTML_IN) $(WASM_B64) $(WASM_EXEC_OUT) $(KATAS_B64) | $(DIST)
+	@awk -v b64f="$(WASM_B64)" -v execf="$(WASM_EXEC_OUT)" -v katasf="$(KATAS_B64)" '\
 function putfile_index_nolf(f,   L){ while ((getline L < f) > 0) printf "%s", L; close(f) } \
 function putfile_lines(f,        L){ while ((getline L < f) > 0) print L; close(f) } \
-BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_JS__*/"; lenB=length(tokB); lenE=length(tokE) } \
+BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_JS__*/"; tokK="__KATAS_BASE64__"; lenB=length(tokB); lenE=length(tokE); lenK=length(tokK) } \
 { line=$$0; \
   p=index(line, tokB); \
   if (p) { \
@@ -40,6 +45,14 @@ BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_JS__*/"; lenB=length(tokB); l
     pre=substr(line,1,p-1); post=substr(line,p+lenE); \
     printf "%s", pre; \
     putfile_lines(execf); \
+    print post; \
+    next; \
+  } \
+  p=index(line, tokK); \
+  if (p) { \
+    pre=substr(line,1,p-1); post=substr(line,p+lenK); \
+    printf "%s", pre; \
+    putfile_index_nolf(katasf); \
     print post; \
     next; \
   } \
