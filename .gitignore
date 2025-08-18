@@ -1,1 +1,3 @@
 dist/*
+# TODO: proper releases and remove this
+!/dist/index.html
