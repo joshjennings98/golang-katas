@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Go (Yaegi) — single‑file WASM runner</title>
+  <style>
+    :root { --gap: 12px; --bg: #0b0f14; --panel: #121822; --ink: #e8eef7; --muted: #9fb0c3; --accent: #4aa4ff; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Inter, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji"; color: var(--ink); background: radial-gradient(1200px 800px at 10% -20%, #1a2433, #0b0f14); }
+    header { padding: 16px; display: flex; align-items: center; gap: 10px; }
+    header h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .2px; color: var(--ink); }
+    header .badges { margin-left: auto; color: var(--muted); font-size: 12px; }
+
+    .wrap { padding: var(--gap); max-width: 1100px; margin: 0 auto; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: var(--gap); }
+    @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; align-items: start; } }
+
+    .panel { background: var(--panel); border: 1px solid #223047; border-radius: 12px; box-shadow: 0 10px 24px rgba(0,0,0,.25); overflow: hidden; display: flex; flex-direction: column; }
+    .panel header { background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)); border-bottom: 1px solid #1e2a3d; padding: 10px 12px; }
+    .panel header h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }
+    .panel .body { padding: 12px; }
+
+    textarea, pre { width: 100%; height: 360px; background: #0f1520; color: var(--ink); border: 1px solid #1c2740; border-radius: 8px; padding: 12px; font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; resize: vertical; }
+    pre { white-space: pre-wrap; word-break: break-word; height: 360px; overflow: auto; }
+
+    .toolbar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid #1e2a3d; background: #0e141f; }
+    button { appearance: none; border: 1px solid #275e9d; background: linear-gradient(180deg, #1a66c0, #13539a); color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    button:disabled { opacity: .6; cursor: progress; }
+    .status { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+    .hint { font-size: 12px; color: var(--muted); margin-top: 6px; }
+    .hidden { display: none !important; }
+    .b64 { background: #0f1520; border: 1px dashed #2b3d62; border-radius: 8px; padding: 10px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Go (Yaegi) in one HTML file</h1>
+    <div class="badges">No server • Inline wasm_exec • WASM embedded</div>
+  </header>
+
+  <div class="wrap">
+    <div class="grid">
+      <section class="panel" id="editorPanel">
+        <header><h2>Source (Go)</h2></header>
+        <div class="body">
+          <textarea id="src" spellcheck="false">package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello from Yaegi!")
+}
+</textarea>
+          <div class="hint">Type Go code interpreted by <a href="https://github.com/traefik/yaegi" target="_blank" rel="noreferrer">Yaegi</a>. On Run, stdout/stderr appear on the right.</div>
+        </div>
+        <div class="toolbar">
+          <button id="runBtn" disabled>Run</button>
+          <button id="clearBtn">Clear output</button>
+          <span class="status" id="status">Booting…</span>
+        </div>
+      </section>
+
+      <section class="panel" id="outputPanel">
+        <header><h2>Output (stdout/stderr)</h2></header>
+        <div class="body">
+          <pre id="out"></pre>
+          <div id="b64wrap" class="hidden">
+            <div class="hint">Base64 of output:</div>
+            <div id="b64" class="b64"></div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Inline wasm_exec.js from $GOROOT/misc/wasm/wasm_exec.js -->
+  <script>
+  /* ===== BEGIN wasm_exec.js (paste contents here) ===== */
+  /*__WASM_EXEC_JS__*/
+  /* ===== END wasm_exec.js ===== */
+  </script>
+
+  <script>
+    // ==== 1) Embed your compiled WASM as base64 (see build steps below) ====
+    const WASM_B64 = "__WASM_BASE64__"; // replace with base64 of yaegi.wasm
+
+    function b64ToBytes(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    // UI helpers
+    const $ = (sel) => document.querySelector(sel);
+    const outEl = $("#out");
+    const b64Wrap = $("#b64wrap");
+    const b64El = $("#b64");
+    const statusEl = $("#status");
+    const runBtn = $("#runBtn");
+    const clearBtn = $("#clearBtn");
+
+    function setOut(s, isErr=false) {
+      outEl.textContent = s;
+      if (outEl.textContent.length > 0) {
+        b64Wrap.classList.remove("hidden");
+        b64El.textContent = btoa(unescape(encodeURIComponent(outEl.textContent)));
+      }
+    }
+
+    clearBtn.addEventListener("click", () => {
+      outEl.textContent = "";
+      b64El.textContent = "";
+      b64Wrap.classList.add("hidden");
+    });
+
+    (async () => {
+      // 2) Boot Go runtime
+      const go = new Go();
+
+      // Capture console output (Go's stdout/stderr route here in the browser)
+      const log = console.log.bind(console);
+      const err = console.error.bind(console);
+      console.log = (...args) => { setOut(args.join(" ") + "\n"); log(...args); };
+      console.error = (...args) => { setOut(args.join(" ") + "\n", true); err(...args); };
+
+      statusEl.textContent = "Loading WASM…";
+      const { instance } = await WebAssembly.instantiate(b64ToBytes(WASM_B64), go.importObject);
+      statusEl.textContent = "Starting Go…";
+      // Run the Go module (non-blocking for UI events)
+      go.run(instance);
+
+      // Wait until yaegi registers the callable function
+      const waitFor = (cond, timeoutMs=10000) => new Promise((res, rej) => {
+        const t0 = performance.now();
+        (function spin(){
+          if (cond()) return res();
+          if (performance.now() - t0 > timeoutMs) return rej(new Error("timeout waiting for yaegi"));
+          setTimeout(spin, 25);
+        })();
+      });
+
+      await waitFor(() => typeof globalThis.yaegiRun === "function");
+      statusEl.textContent = "Ready";
+      runBtn.disabled = false;
+
+      runBtn.addEventListener("click", async () => {
+        runBtn.disabled = true; statusEl.textContent = "Running…";
+        const src = document.getElementById("src").value;
+        try {
+          const result = await globalThis.yaegiRun(src);
+          if (result && result.stderr) setOut(result.stderr + (result.stderr.endsWith("\n")?"":"\n"), true);
+          if (result && result.stdout) setOut(result.stdout + (result.stdout.endsWith("\n")?"":"\n"));
+        } catch (e) {
+          setOut(String(e) + "\n", true);
+        } finally {
+          statusEl.textContent = "Ready"; runBtn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
