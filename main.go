@@ -79,6 +79,11 @@ func getComputedHeightPx(el js.Value) float64 {
 	return v
 }
 
+func disableControls() {
+	runBtn.Set("disabled", true)
+	clearBtn.Set("disabled", true)
+}
+
 func b64ToUTF8(b64 string) (string, error) {
 	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
@@ -108,6 +113,7 @@ func setOutSmart(s string) {
 		}
 		if successAt != 0 {
 			writeOut("✓ Success! (" + formatElapsed(successAt) + ")")
+			disableControls()
 			return
 		}
 	}
@@ -306,14 +312,16 @@ func onRun(_ js.Value, _ []js.Value) any {
 	}
 	out := strings.Join(lines, "\n")
 
-	if strings.Contains(out, "✗") || strings.Contains(out, "compile error:") {
-		setOutSmart(out)
-	} else {
+	success := !(strings.Contains(out, "✗") || strings.Contains(out, "compile error:"))
+	if success {
 		setOutSmart("✓ Success!")
+		disableControls()
+	} else {
+		setOutSmart(out)
+		runBtn.Set("disabled", false)
 	}
 
 	setText(statusEl, "Ready")
-	runBtn.Set("disabled", false)
 	return nil
 }
 
