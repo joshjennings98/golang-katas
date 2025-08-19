@@ -11,13 +11,10 @@ import (
 	"strconv"
 	"strings"
 	"syscall/js"
-	"time"
 
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
 )
-
-/* ===================== Data types ===================== */
 
 type TestCase struct {
 	Call     string `json:"call"`
@@ -51,30 +48,24 @@ type runResult struct {
 	Cases  []caseResult `json:"cases"`
 }
 
-/* ===================== Globals (DOM & state) ===================== */
-
 var (
 	doc       = js.Global().Get("document")
 	win       = js.Global().Get("window")
 	perf      = js.Global().Get("performance")
-	startedAt = 0.0    // performance.now() at load
-	successAt *float64 // latched ms to first success
+	startedAt = 0.0
+	successAt float64
 
-	// Elements
-	srcEl    js.Value
-	outEl    js.Value
-	statusEl js.Value
-	runBtn   js.Value
-	clearBtn js.Value
-	kataSel  js.Value
-	kataDesc js.Value
-	defaultH float64 // initial height for #out (px)
+	srcEl         js.Value
+	outEl         js.Value
+	statusEl      js.Value
+	runBtn        js.Value
+	clearBtn      js.Value
+	kataSel       js.Value
+	kataDesc      js.Value
+	defaultHeight float64
 
-	// Data
 	katas KatasConfig
 )
-
-/* ===================== Utilities ===================== */
 
 func q(sel string) js.Value         { return doc.Call("querySelector", sel) }
 func setText(el js.Value, s string) { el.Set("textContent", s) }
@@ -82,15 +73,10 @@ func setVal(el js.Value, s string)  { el.Set("value", s) }
 
 func getComputedHeightPx(el js.Value) float64 {
 	cs := win.Call("getComputedStyle", el)
-	h := cs.Get("height").String() // like "360px"
+	h := cs.Get("height").String()
 	h = strings.TrimSuffix(h, "px")
 	v, _ := strconv.ParseFloat(h, 64)
 	return v
-}
-
-func b64ToBytes(b64 string) ([]byte, error) {
-	// atob in JS -> here we just standard-decode
-	return base64.StdEncoding.DecodeString(b64)
 }
 
 func b64ToUTF8(b64 string) (string, error) {
@@ -116,12 +102,12 @@ func writeOut(s string) {
 func setOutSmart(s string) {
 	isSuccess := s == "✓ Success!" || strings.HasPrefix(s, "✓ Success!")
 	if isSuccess {
-		if successAt == nil && startedAt > 0 {
+		if successAt == 0 && startedAt > 0 {
 			v := perf.Call("now").Float() - startedAt
-			successAt = &v
+			successAt = v
 		}
-		if successAt != nil {
-			writeOut("✓ Success! (" + formatElapsed(*successAt) + ")")
+		if successAt != 0 {
+			writeOut("✓ Success! (" + formatElapsed(successAt) + ")")
 			return
 		}
 	}
@@ -132,25 +118,23 @@ func resizeOutToContent() {
 	content := outEl.Get("textContent").String()
 	isEmpty := strings.TrimSpace(content) == ""
 	if isEmpty {
-		outEl.Get("style").Set("height", fmt.Sprintf("%.0fpx", defaultH))
+		outEl.Get("style").Set("height", fmt.Sprintf("%.0fpx", defaultHeight))
 		outEl.Get("style").Set("overflowY", "hidden")
 		return
 	}
 	outEl.Get("style").Set("height", "auto")
 	needed := outEl.Get("scrollHeight").Float()
 	h := needed
-	if h > defaultH {
-		h = defaultH
+	if h > defaultHeight {
+		h = defaultHeight
 	}
 	outEl.Get("style").Set("height", fmt.Sprintf("%.0fpx", h))
-	if needed > defaultH {
+	if needed > defaultHeight {
 		outEl.Get("style").Set("overflowY", "auto")
 	} else {
 		outEl.Get("style").Set("overflowY", "hidden")
 	}
 }
-
-/* ===================== Katas ===================== */
 
 func loadKatasFromGlobal() error {
 	kb64 := js.Global().Get("KATAS_B64").String()
@@ -165,9 +149,7 @@ func loadKatasFromGlobal() error {
 }
 
 func populateKataSelect() {
-	// Clear
 	kataSel.Set("innerHTML", "")
-	// Add options
 	for _, k := range katas.Katas {
 		opt := doc.Call("createElement", "option")
 		opt.Set("value", k.Slug)
@@ -175,9 +157,7 @@ func populateKataSelect() {
 		kataSel.Call("appendChild", opt)
 	}
 
-	// Random selection
 	if l := kataSel.Get("options").Get("length").Int(); l > 0 {
-		rand.Seed(time.Now().UnixNano())
 		idx := rand.Intn(l)
 		kataSel.Set("selectedIndex", idx)
 		setKata(kataSel.Get("value").String())
@@ -203,8 +183,6 @@ func setKata(slug string) {
 	setVal(srcEl, k.VisibleSkeleton)
 }
 
-/* ===================== Testing via Yaegi ===================== */
-
 func runTests(src, slug string) runResult {
 	var out bytes.Buffer
 	i := interp.New(interp.Options{Stdout: &out, Stderr: &out})
@@ -229,10 +207,10 @@ import (
 	var h strings.Builder
 	h.WriteString(`
 type __Case struct {
-	Call     string ` + "`json:\"call\"`" + `
+	Call	 string ` + "`json:\"call\"`" + `
 	Expected string ` + "`json:\"expected\"`" + `
-	Got      string ` + "`json:\"got\"`" + `
-	Ok       bool   ` + "`json:\"ok\"`" + `
+	Got	  string ` + "`json:\"got\"`" + `
+	Ok	   bool   ` + "`json:\"ok\"`" + `
 }
 var __cases = []__Case{
 `)
@@ -254,8 +232,8 @@ func __resultJSON(stdout string) string {
 	type Res struct {
 		Stdout string   ` + "`json:\"stdout\"`" + `
 		Stderr string   ` + "`json:\"stderr\"`" + `
-		Total  int      ` + "`json:\"total\"`" + `
-		Passed int      ` + "`json:\"passed\"`" + `
+		Total  int	  ` + "`json:\"total\"`" + `
+		Passed int	  ` + "`json:\"passed\"`" + `
 		Cases  []__Case ` + "`json:\"cases\"`" + `
 	}
 	b, _ := _json.Marshal(Res{
@@ -298,11 +276,9 @@ func __resultJSON(stdout string) string {
 	return rr
 }
 
-/* ===================== UI wiring in Go ===================== */
-
 func onRun(_ js.Value, _ []js.Value) any {
 	runBtn.Set("disabled", true)
-	setText(statusEl, "Running…")
+	setText(statusEl, "Running...")
 	setOutSmart("")
 
 	src := srcEl.Get("value").String()
@@ -318,14 +294,14 @@ func onRun(_ js.Value, _ []js.Value) any {
 		lines = append(lines, res.Stderr)
 	}
 	if res.Total > 0 {
-		lines = append(lines, fmt.Sprintf("Kata: %s — %d/%d passed", slug, res.Passed, res.Total))
+		lines = append(lines, fmt.Sprintf("Kata: %s - %d/%d passed", slug, res.Passed, res.Total))
 	}
 	for _, c := range res.Cases {
 		mark := "✓"
 		if !c.Ok {
 			mark = "✗"
 		}
-		line := fmt.Sprintf("%s %s ⇒ got %s (expected %s)", mark, c.Call, c.Got, c.Expected)
+		line := fmt.Sprintf("%s %s => got %s (expected %s)", mark, c.Call, c.Got, c.Expected)
 		lines = append(lines, line)
 	}
 	out := strings.Join(lines, "\n")
@@ -353,14 +329,12 @@ func onKataChange(_ js.Value, _ []js.Value) any {
 }
 
 func onResize(_ js.Value, _ []js.Value) any {
-	defaultH = getComputedHeightPx(outEl)
+	defaultHeight = getComputedHeightPx(outEl)
 	resizeOutToContent()
 	return nil
 }
 
-/* ===== Smart indentation for #src (Tab/Shift+Tab/Enter) ===== */
-
-const indent = "  " // two spaces
+const indent = "	"
 
 func handleKeydown(this js.Value, args []js.Value) any {
 	e := args[0]
@@ -432,7 +406,6 @@ func handleKeydown(this js.Value, args []js.Value) any {
 			return nil
 		}
 
-		// Single caret or single-line selection
 		if shift {
 			lineStart := strings.LastIndex(value[:s], "\n") + 1
 			if strings.HasPrefix(value[lineStart:], indent) {
@@ -484,10 +457,7 @@ func max(a, b int) int {
 	return b
 }
 
-/* ===================== Boot ===================== */
-
 func main() {
-	// Grab elements
 	srcEl = q("#src")
 	outEl = q("#out")
 	statusEl = q("#status")
@@ -496,19 +466,16 @@ func main() {
 	kataSel = q("#kataSelect")
 	kataDesc = q("#kataDesc")
 
-	// First measurements
 	startedAt = perf.Call("now").Float()
-	defaultH = getComputedHeightPx(outEl)
+	defaultHeight = getComputedHeightPx(outEl)
 
-	// Wire events (all in Go!)
 	runBtn.Call("addEventListener", "click", js.FuncOf(onRun))
 	clearBtn.Call("addEventListener", "click", js.FuncOf(onClear))
 	kataSel.Call("addEventListener", "change", js.FuncOf(onKataChange))
 	win.Call("addEventListener", "resize", js.FuncOf(onResize))
 	srcEl.Call("addEventListener", "keydown", js.FuncOf(handleKeydown))
 
-	// Load katas & initialize UI
-	setText(statusEl, "Loading WASM…") // brief status while Go spins up
+	setText(statusEl, "Loading WASM...")
 	if err := loadKatasFromGlobal(); err != nil {
 		setText(statusEl, "Error loading katas")
 		writeOut(fmt.Sprintf("bad katas.json: %v\n", err))
@@ -519,9 +486,7 @@ func main() {
 	runBtn.Set("disabled", false)
 	populateKataSelect()
 
-	// Clear button behavior matches your old JS
 	clearBtn.Call("addEventListener", "click", js.FuncOf(onClear))
 
-	// Keep the program alive
 	select {}
 }
