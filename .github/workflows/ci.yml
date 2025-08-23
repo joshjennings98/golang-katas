@@ -34,8 +34,7 @@ jobs:
           go mod tidy
       - name: Build for WASM
         run: |
-          make clean build
-          find dist -type f ! -name 'index.html' -delete # remove stuff I don't need for the deployment
+          make clean split
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

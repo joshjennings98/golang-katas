@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Go Programming Katas</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Go Programming Katas</h1>
+    <div class="badges">
+      Source available on
+      <a href="https://github.com/joshjennings98/golang-katas" target="_blank" rel="noreferrer">GitHub</a>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="grid">
+      <section class="panel" id="editorPanel">
+        <header><h2>Source (Go)</h2></header>
+        <div class="body">
+          <div class="row" style="margin-bottom:8px">
+            <select id="kataSelect">
+              <option value="" disabled selected>Loading...</option>
+            </select>
+            <span class="desc" id="kataDesc">Waiting for katas to load.</span>
+          </div>
+          <textarea id="src" spellcheck="false"></textarea>
+          <div class="hint">
+            Select a kata, implement the function in Go, then click Run to execute the test cases
+            in the browser via
+            <a href="https://github.com/traefik/yaegi" target="_blank" rel="noreferrer">Yaegi</a>
+            and WASM.
+          </div>
+        </div>
+        <div class="toolbar">
+          <button id="runBtn" disabled>Run</button>
+          <button id="clearBtn">Clear output</button>
+          <span class="status" id="status">Booting…</span>
+        </div>
+      </section>
+      <section class="panel" id="outputPanel">
+        <header><h2>Output (tests)</h2></header>
+        <div class="body">
+          <pre id="out"></pre>
+        </div>
+      </section>
+    </div>
+  </div>
+  <script>
+    /*__WASM_EXEC_JS__*/
+    globalThis.WASM_B64  = "__WASM_BASE64__";  // yaegi.wasm (base64)
+    globalThis.KATAS_B64 = "__KATAS_BASE64__"; // katas.json (base64)
+    (async () => {
+      const go = new Go();
+      const bytes = Uint8Array.from(atob(globalThis.WASM_B64), c => c.charCodeAt(0));
+      const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
+      go.run(instance);
+    })();
+  </script>
+</body>
+</html>

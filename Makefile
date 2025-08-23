@@ -1,9 +1,12 @@
-.PHONY: build clean error
+.PHONY: single split clean error
+
 DIST := dist
 
-HTML_IN := ./template.html
+HTML_SINGLE_IN := ./template.single.html
+HTML_SPLIT_IN := ./template.split.html
 GOLANG_IN := ./main.go
 KATAS_JSON := ./katas.json
+STYLE_IN := ./style.css
 
 HTML_OUT := $(DIST)/index.html
 WASM_OUT := $(DIST)/yaegi.wasm
@@ -26,41 +29,25 @@ $(WASM_EXEC_OUT): | $(DIST)
 $(KATAS_B64): $(KATAS_JSON) | $(DIST)
 	base64 < "$(KATAS_JSON)" | tr -d '\n' > "$(KATAS_B64)"
 
-$(HTML_OUT): $(HTML_IN) $(WASM_B64) $(WASM_EXEC_OUT) $(KATAS_B64) | $(DIST)
+single: $(HTML_SINGLE_IN) $(STYLE_IN) $(WASM_B64) $(WASM_EXEC_OUT) $(KATAS_B64) | $(DIST)
+	cp "$(STYLE_IN)" "$(DIST)/style.css"
 	@awk -v b64f="$(WASM_B64)" -v execf="$(WASM_EXEC_OUT)" -v katasf="$(KATAS_B64)" '\
 function putfile_index_nolf(f,   L){ while ((getline L < f) > 0) printf "%s", L; close(f) } \
 function putfile_lines(f,        L){ while ((getline L < f) > 0) print L; close(f) } \
-BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_JS__*/"; tokK="__KATAS_BASE64__"; lenB=length(tokB); lenE=length(tokE); lenK=length(tokK) } \
+BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_OUT_JS__*/"; tokK="__KATAS_BASE64__" } \
 { line=$$0; \
-  p=index(line, tokB); \
-  if (p) { \
-    pre=substr(line,1,p-1); post=substr(line,p+lenB); \
-    printf "%s", pre; \
-    putfile_index_nolf(b64f); \
-    print post; \
-    next; \
-  } \
-  p=index(line, tokE); \
-  if (p) { \
-    pre=substr(line,1,p-1); post=substr(line,p+lenE); \
-    printf "%s", pre; \
-    putfile_lines(execf); \
-    print post; \
-    next; \
-  } \
-  p=index(line, tokK); \
-  if (p) { \
-    pre=substr(line,1,p-1); post=substr(line,p+lenK); \
-    printf "%s", pre; \
-    putfile_index_nolf(katasf); \
-    print post; \
-    next; \
-  } \
-  print; \
-}' "$(HTML_IN)" > "$(HTML_OUT)"; \
+  p=index(line, tokB); if (p){ pre=substr(line,1,p-1); post=substr(line,p+length(tokB)); printf "%s", pre; putfile_index_nolf(b64f); print post; next } \
+  p=index(line, tokE); if (p){ pre=substr(line,1,p-1); post=substr(line,p+length(tokE)); printf "%s", pre; putfile_lines(execf); print post; next } \
+  p=index(line, tokK); if (p){ pre=substr(line,1,p-1); post=substr(line,p+length(tokK)); printf "%s", pre; putfile_index_nolf(katasf); print post; next } \
+  print }' "$(HTML_SINGLE_IN)" > "$(HTML_OUT)"; \
 	echo "Wrote $(HTML_OUT)"
 
-build: $(HTML_OUT)
+split: $(HTML_SPLIT_IN) $(STYLE_IN) $(WASM_B64) $(WASM_EXEC_OUT) $(KATAS_B64) | $(DIST)
+	cp "$(STYLE_IN)" "$(DIST)/style.css"
+	printf 'globalThis.WASM_B64="%s";\n' "$$(cat "$(WASM_B64)")" > "$(DIST)/wasm_embed.js"
+	printf 'globalThis.KATAS_B64="%s";\n' "$$(cat "$(KATAS_B64)")" > "$(DIST)/katas_embed.js"
+	cp "$(HTML_SPLIT_IN)" "$(HTML_OUT)"
+	echo "Wrote $(HTML_OUT) and assets to $(DIST)/"
 
 clean:
 	rm -rf $(DIST)
@@ -69,6 +56,7 @@ clean:
 
 error:
 	@echo "Targets:"
-	@echo "  make build   # build dist/index.html (self-contained)"
+	@echo "  make single"
+	@echo "  make split"
 	@echo "  make clean"
 	@exit 1
