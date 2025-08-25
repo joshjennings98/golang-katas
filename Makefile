@@ -34,7 +34,7 @@ single: $(HTML_SINGLE_IN) $(STYLE_IN) $(WASM_B64) $(WASM_EXEC_OUT) $(KATAS_B64) 
 	@awk -v b64f="$(WASM_B64)" -v execf="$(WASM_EXEC_OUT)" -v katasf="$(KATAS_B64)" '\
 function putfile_index_nolf(f,   L){ while ((getline L < f) > 0) printf "%s", L; close(f) } \
 function putfile_lines(f,        L){ while ((getline L < f) > 0) print L; close(f) } \
-BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_OUT_JS__*/"; tokK="__KATAS_BASE64__" } \
+BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_JS__*/"; tokK="__KATAS_BASE64__" } \
 { line=$$0; \
   p=index(line, tokB); if (p){ pre=substr(line,1,p-1); post=substr(line,p+length(tokB)); printf "%s", pre; putfile_index_nolf(b64f); print post; next } \
   p=index(line, tokE); if (p){ pre=substr(line,1,p-1); post=substr(line,p+length(tokE)); printf "%s", pre; putfile_lines(execf); print post; next } \
@@ -42,10 +42,9 @@ BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_OUT_JS__*/"; tokK="__KATAS_BA
   print }' "$(HTML_SINGLE_IN)" > "$(HTML_OUT)"; \
 	echo "Wrote $(HTML_OUT)"
 
-split: $(HTML_SPLIT_IN) $(STYLE_IN) $(WASM_B64) $(WASM_EXEC_OUT) $(KATAS_B64) | $(DIST)
+split: $(HTML_SPLIT_IN) $(STYLE_IN) $(WASM_OUT) $(WASM_EXEC_OUT) $(KATAS_JSON) $(KATAS_B64) | $(DIST)
 	cp "$(STYLE_IN)" "$(DIST)/style.css"
-	printf 'globalThis.WASM_B64="%s";\n' "$$(cat "$(WASM_B64)")" > "$(DIST)/wasm_embed.js"
-	printf 'globalThis.KATAS_B64="%s";\n' "$$(cat "$(KATAS_B64)")" > "$(DIST)/katas_embed.js"
+	printf '%s' "$$(base64 -w0 "$(KATAS_JSON)")" > "$(KATAS_B64)"
 	cp "$(HTML_SPLIT_IN)" "$(HTML_OUT)"
 	echo "Wrote $(HTML_OUT) and assets to $(DIST)/"
 

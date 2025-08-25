@@ -6,8 +6,6 @@
   <title>Go Programming Katas</title>
   <link rel="stylesheet" href="style.css">
   <script src="wasm_exec.js"></script>
-  <script src="wasm_embed.js"></script>
-  <script src="katas_embed.js"></script>
 </head>
 <body>
   <header>
@@ -50,13 +48,39 @@
       </section>
     </div>
   </div>
-  <script>
-    (async () => {
-      const go = new Go();
-      const bytes = Uint8Array.from(atob(globalThis.WASM_B64), c => c.charCodeAt(0));
-      const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
-      go.run(instance);
-    })();
+
+  <script type="module">
+    // load katas.json
+    const katas = await fetch("katas.json.b64").then((r) => r.text())
+    globalThis.KATAS_B64 = katas;
+
+    // boot WASM
+    const go = new Go();
+    const resp = await fetch("yaegi.wasm");
+    let result;
+    if (WebAssembly.instantiateStreaming) {
+      try {
+        result = await WebAssembly.instantiateStreaming(resp, go.importObject);
+      } catch {
+        const bytes = await resp.arrayBuffer();
+        result = await WebAssembly.instantiate(bytes, go.importObject);
+      }
+    } else {
+      const bytes = await resp.arrayBuffer();
+      result = await WebAssembly.instantiate(bytes, go.importObject);
+    }
+    go.run(result.instance);
+
+    // populate select
+    const select = document.getElementById("kataSelect");
+    const kataDesc = document.getElementById("kataDesc");
+    if (Array.isArray(katas) && katas.length) {
+      select.innerHTML = katas.map((k, i) =>
+        `<option value="${i}">${k.title ?? `Kata ${i + 1}`}</option>`
+      ).join("");
+      select.disabled = false;
+      kataDesc.textContent = "Select a kata to begin.";
+    }
   </script>
 </body>
 </html>
