@@ -40,28 +40,20 @@ The list of katas is:
 * Min Stack (operation simulation)
 * Next Greater Element I
 * Largest Rectangle in Histogram
-* Group Anagrams
 * Binary Tree Level Order Traversal (array input)
 * Path Sum (root-to-leaf equals target)
 * Connected Components in an Undirected Graph
 * Number of Islands
 * Online Medians (Two Heaps)
-* Sliding Window Median (Two Heaps)
 * Top K Frequent Elements
-* Subsets (Power Set)
-* Combination Sum
 * Word Search (exist)
 * Search in Rotated Sorted Array
 * Find Peak Element
 * Interval Scheduling (Max Non-Overlapping)
-* Jump Game II (Min Jumps)
 * Trie (Insert/Search/StartsWith Simulation)
 * Course Schedule II (Topo Order)
-* Alien Dictionary (Topo of Characters)
 * Graph Valid Tree (Union-Find)
 * Redundant Connection (Union-Find)
-* Longest Consecutive Sequence
-* Contains Duplicate III (Ordered Set)
 * Subarray Sum Equals K (Count)
 * Maximum Size Subarray Sum Equals K
 

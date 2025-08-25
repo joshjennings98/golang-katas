@@ -44,7 +44,7 @@ BEGIN{ tokB="__WASM_BASE64__"; tokE="/*__WASM_EXEC_JS__*/"; tokK="__KATAS_BASE64
 
 split: $(HTML_SPLIT_IN) $(STYLE_IN) $(WASM_OUT) $(WASM_EXEC_OUT) $(KATAS_JSON) $(KATAS_B64) | $(DIST)
 	cp "$(STYLE_IN)" "$(DIST)/style.css"
-	printf '%s' "$$(base64 -w0 "$(KATAS_JSON)")" > "$(KATAS_B64)"
+	printf '%s' "$$(cat "$(KATAS_JSON)" | jq -r tostring | base64 -w0)" > "$(KATAS_B64)"
 	cp "$(HTML_SPLIT_IN)" "$(HTML_OUT)"
 	echo "Wrote $(HTML_OUT) and assets to $(DIST)/"
 
